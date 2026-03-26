@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { api, Project, Theme } from '../utils/api';
+import { api } from '../utils/api';
+import type { Project, Theme } from '../utils/types';
 import { useNavigate } from 'react-router-dom';
 import './Projects.css';
 

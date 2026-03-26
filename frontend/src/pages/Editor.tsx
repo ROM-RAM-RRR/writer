@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { api, Theme, Project } from '../utils/api';
+import { api } from '../utils/api';
+import type { Theme, Project } from '../utils/types';
 import './Editor.css';
 
 export default function Editor() {

@@ -4,8 +4,15 @@ from pydantic import BaseModel
 from openai import OpenAI
 from typing import Optional
 import asyncio
+import os
 from app.services.config_service import config_service
 from app.services.theme_service import theme_service
+
+# 禁用代理
+os.environ.pop('http_proxy', None)
+os.environ.pop('https_proxy', None)
+os.environ.pop('HTTP_PROXY', None)
+os.environ.pop('HTTPS_PROXY', None)
 
 
 router = APIRouter()
@@ -70,6 +77,7 @@ async def generate(request: GenerateRequest):
 
             yield "data: [DONE]\n\n"
         except Exception as e:
-            yield f"data: [ERROR] {str(e)}\n\n"
+            import traceback
+            yield f"data: [ERROR] {str(e)}\n\n{traceback.format_exc()}\n\n"
 
     return StreamingResponse(generate_stream(), media_type="text/event-stream")

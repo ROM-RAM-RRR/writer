@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { api, ApiConfig } from '../utils/api';
+import { api } from '../utils/api';
+import type { ApiConfig } from '../utils/types';
 import './Settings.css';
 
 export default function Settings() {

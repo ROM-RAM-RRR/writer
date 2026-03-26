@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { api, Theme } from '../utils/api';
+import { api } from '../utils/api';
+import type { Theme } from '../utils/types';
 import './Themes.css';
 
 export default function Themes() {
