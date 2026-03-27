@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../utils/api';
 import type { Theme, Project } from '../utils/types';
+import OutlineGenerator from '../components/OutlineGenerator';
 import './Editor.css';
 
 export default function Editor() {
@@ -182,6 +183,15 @@ export default function Editor() {
                 {generating ? '生成中...' : 'AI续写'}
               </button>
             </div>
+
+            <OutlineGenerator
+              themes={themes}
+              currentThemeId={currentProject?.theme_id || undefined}
+              onSelectOutline={(generatedContent) => {
+                setContent(prev => prev + '\n\n' + generatedContent);
+                saveProject();
+              }}
+            />
           </>
         ) : (
           <div className="no-project">

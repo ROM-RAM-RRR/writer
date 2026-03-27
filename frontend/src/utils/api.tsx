@@ -96,4 +96,73 @@ export const api = {
       }),
     });
   },
+
+  // Outline APIs
+  async generateOutline(data: {
+    theme: string;
+    genre?: string;
+    style?: string;
+    length?: string;
+    requirements?: string;
+    theme_id?: string;
+    num_options?: number;
+  }) {
+    const res = await fetch(`${API_BASE}/outline/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  async continueOutline(data: {
+    selected_outline: object;
+    action: 'continue' | 'modify';
+    modifications?: string;
+    theme_id?: string;
+    max_tokens?: number;
+    temperature?: number;
+  }) {
+    const res = await fetch(`${API_BASE}/outline/continue`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  // Outline CRUD
+  async getOutlines(projectId?: string) {
+    const url = projectId ? `${API_BASE}/outline/?project_id=${projectId}` : `${API_BASE}/outline/`;
+    const res = await fetch(url);
+    return res.json();
+  },
+
+  async saveOutline(data: {
+    title: string;
+    genre: string;
+    plot: string;
+    characters: string[];
+    highlights: string;
+    chapters: number;
+    source_theme?: string;
+    content?: string;
+    project_id?: string;
+  }) {
+    const res = await fetch(`${API_BASE}/outline/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  async deleteOutline(id: string) {
+    await fetch(`${API_BASE}/outline/${id}`, { method: 'DELETE' });
+  },
+
+  // Export outline to Word
+  downloadOutline(id: string) {
+    window.open(`${API_BASE}/outline/${id}/export`, '_blank');
+  },
 };

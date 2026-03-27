@@ -14,12 +14,13 @@ app.add_middleware(
 )
 
 # Include API routers
-from app.api import projects, themes, generate, config
+from app.api import projects, themes, generate, config, outline
 
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(themes.router, prefix="/api/themes", tags=["themes"])
 app.include_router(generate.router, prefix="/api/generate", tags=["generate"])
 app.include_router(config.router, prefix="/api/config", tags=["config"])
+app.include_router(outline.router, prefix="/api/outline", tags=["outline"])
 
 @app.get("/")
 async def root():

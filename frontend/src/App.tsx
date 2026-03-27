@@ -3,6 +3,7 @@ import Editor from './pages/Editor';
 import Themes from './pages/Themes';
 import Projects from './pages/Projects';
 import Settings from './pages/Settings';
+import Outlines from './pages/Outlines';
 import Layout from './components/Layout';
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
           <Route path="editor" element={<Editor />} />
           <Route path="themes" element={<Themes />} />
           <Route path="projects" element={<Projects />} />
+          <Route path="outlines" element={<Outlines />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>

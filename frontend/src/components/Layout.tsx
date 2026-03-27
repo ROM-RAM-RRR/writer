@@ -18,6 +18,11 @@ export default function Layout() {
             </NavLink>
           </li>
           <li>
+            <NavLink to="/outlines" className={({ isActive }) => isActive ? 'active' : ''}>
+              大纲
+            </NavLink>
+          </li>
+          <li>
             <NavLink to="/themes" className={({ isActive }) => isActive ? 'active' : ''}>
               主题
             </NavLink>
