@@ -204,3 +204,103 @@
   color: #95a5a6;
   font-size: 18px;
 }
+
+.outline-section {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 15px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.outline-section h3 {
+  margin: 0 0 15px 0;
+  color: #2c3e50;
+}
+
+.outline-textarea {
+  width: 100%;
+  min-height: 150px;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  font-family: 'Microsoft YaHei', 'PingFang SC', serif;
+  margin-bottom: 10px;
+}
+
+.outline-textarea:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.generated-text {
+  white-space: pre-wrap;
+  line-height: 1.8;
+  color: #2c3e50;
+  font-family: 'Microsoft YaHei', 'PingFang SC', serif;
+  margin: 0;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  border-radius: 16px;
+  padding: 30px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+}
+
+.modal h3 {
+  margin: 0 0 15px 0;
+  color: #2c3e50;
+}
+
+.modal p {
+  color: #666;
+  margin-bottom: 15px;
+}
+
+.modal textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  font-family: 'Microsoft YaHei', 'PingFang SC', serif;
+}
+
+.modal textarea:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.modal-actions button {
+  flex: 1;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}

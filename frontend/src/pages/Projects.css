@@ -93,6 +93,16 @@
   background: #fadbd8;
 }
 
+.project-actions .btn-export {
+  background: #3498db;
+  color: white;
+  border: none;
+}
+
+.project-actions .btn-export:hover {
+  background: #2980b9;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;

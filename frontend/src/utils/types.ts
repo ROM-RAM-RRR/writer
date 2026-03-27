@@ -14,6 +14,7 @@ export interface Project {
   id: string;
   title: string;
   content: string;
+  outline: string;
   theme_id: string | null;
   created_at: string;
   updated_at: string;

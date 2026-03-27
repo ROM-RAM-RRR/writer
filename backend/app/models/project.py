@@ -6,6 +6,7 @@ from datetime import datetime
 class ProjectBase(BaseModel):
     title: str
     content: str = ""
+    outline: str = ""
     theme_id: Optional[str] = None
 
 
@@ -16,6 +17,7 @@ class ProjectCreate(ProjectBase):
 class ProjectUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
+    outline: Optional[str] = None
     theme_id: Optional[str] = None
 
 

@@ -38,6 +38,7 @@ class ProjectService:
             id=project_id,
             title=project_data.title,
             content=project_data.content,
+            outline=project_data.outline,
             theme_id=project_data.theme_id,
             created_at=now,
             updated_at=now,
@@ -64,6 +65,8 @@ class ProjectService:
             project.title = project_data.title
         if project_data.content is not None:
             project.content = project_data.content
+        if project_data.outline is not None:
+            project.outline = project_data.outline
         if project_data.theme_id is not None:
             project.theme_id = project_data.theme_id
         project.updated_at = now

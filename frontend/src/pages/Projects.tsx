@@ -54,6 +54,10 @@ export default function Projects() {
     return theme?.name || '未知主题';
   };
 
+  const handleExport = (projectId: string) => {
+    api.downloadProject(projectId);
+  };
+
   return (
     <div className="projects-page">
       <div className="projects-header">
@@ -91,6 +95,9 @@ export default function Projects() {
               <div className="project-actions">
                 <button className="btn-primary" onClick={() => navigate('/editor')}>
                   继续写作
+                </button>
+                <button className="btn-export" onClick={() => handleExport(project.id)}>
+                  导出Word
                 </button>
                 <button className="btn-delete" onClick={() => deleteProject(project.id)}>
                   删除

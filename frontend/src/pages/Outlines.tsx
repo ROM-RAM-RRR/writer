@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
 import type { Theme } from '../utils/types';
+import OutlineGenerator from '../components/OutlineGenerator';
 import './Outlines.css';
 
 interface SavedOutline {
@@ -19,20 +20,25 @@ interface SavedOutline {
 
 export default function Outlines() {
   const [outlines, setOutlines] = useState<SavedOutline[]>([]);
+  const [themes, setThemes] = useState<Theme[]>([]);
   const [selectedOutline, setSelectedOutline] = useState<SavedOutline | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadOutlines();
+    loadData();
   }, []);
 
-  const loadOutlines = async () => {
+  const loadData = async () => {
     setLoading(true);
     try {
-      const data = await api.getOutlines();
-      setOutlines(data);
+      const [outlinesData, themesData] = await Promise.all([
+        api.getOutlines(),
+        api.getThemes(),
+      ]);
+      setOutlines(outlinesData);
+      setThemes(themesData);
     } catch (error) {
-      console.error('Load outlines error:', error);
+      console.error('Load error:', error);
     } finally {
       setLoading(false);
     }
@@ -83,6 +89,7 @@ export default function Outlines() {
 
   return (
     <div className="outlines-page">
+      <OutlineGenerator themes={themes} />
       <div className="outlines-header">
         <h2>我的大纲</h2>
         <span className="outlines-count">共 {outlines.length} 个大纲</span>

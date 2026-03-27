@@ -56,7 +56,7 @@ export const api = {
     return res.json();
   },
 
-  async updateProject(id: string, project: { title?: string; content?: string; theme_id?: string }): Promise<Project> {
+  async updateProject(id: string, project: { title?: string; content?: string; outline?: string; theme_id?: string }): Promise<Project> {
     const res = await fetch(`${API_BASE}/projects/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -67,6 +67,11 @@ export const api = {
 
   async deleteProject(id: string): Promise<void> {
     await fetch(`${API_BASE}/projects/${id}`, { method: 'DELETE' });
+  },
+
+  // Export project to Word
+  downloadProject(id: string) {
+    window.open(`${API_BASE}/projects/${id}/export`, '_blank');
   },
 
   // Config APIs
@@ -85,7 +90,7 @@ export const api = {
   },
 
   // Generate API (streaming)
-  generateContent(content: string, themeId?: string, options?: { max_tokens?: number; temperature?: number; top_p?: number }) {
+  generateContent(content: string, themeId?: string, options?: { max_tokens?: number; temperature?: number; top_p?: number; suggestion?: string; outline?: string }) {
     return fetch(`${API_BASE}/generate/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

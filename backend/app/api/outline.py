@@ -239,56 +239,70 @@ async def delete_outline(outline_id: str):
 # 导出大纲为Word
 @router.get("/{outline_id}/export")
 async def export_outline(outline_id: str):
-    from fastapi.responses import FileResponse
+    from fastapi.responses import StreamingResponse
     from docx import Document
-    from docx.shared import Inches, Pt
     import io
+    import tempfile
+    import os
 
-    outline = outline_service.get_outline(outline_id)
-    if not outline:
-        raise HTTPException(status_code=404, detail="大纲不存在")
+    try:
+        outline = outline_service.get_outline(outline_id)
+        if not outline:
+            raise HTTPException(status_code=404, detail="大纲不存在")
 
-    # 创建Word文档
-    doc = Document()
+        # 创建Word文档
+        doc = Document()
 
-    # 标题
-    title = doc.add_heading(outline.title, level=1)
-    title.alignment = 1  # 居中
+        # 标题
+        title = doc.add_heading(outline.title, level=1)
+        title.alignment = 1
 
-    # 基本信息
-    doc.add_heading('基本信息', level=2)
-    doc.add_paragraph(f'类型：{outline.genre}')
-    doc.add_paragraph(f'预计章节数：{outline.chapters}')
-    doc.add_paragraph(f'创建时间：{outline.created_at}')
+        # 基本信息
+        doc.add_heading('基本信息', level=2)
+        doc.add_paragraph(f'类型：{outline.genre}')
+        doc.add_paragraph(f'预计章节数：{outline.chapters}')
+        doc.add_paragraph(f'创建时间：{outline.created_at}')
 
-    if outline.source_theme:
-        doc.add_paragraph(f'来源主题：{outline.source_theme}')
+        if outline.source_theme:
+            doc.add_paragraph(f'来源主题：{outline.source_theme}')
 
-    # 情节
-    doc.add_heading('情节概要', level=2)
-    doc.add_paragraph(outline.plot)
+        # 情节
+        doc.add_heading('情节概要', level=2)
+        doc.add_paragraph(outline.plot)
 
-    # 角色
-    doc.add_heading('主要角色', level=2)
-    for char in outline.characters:
-        doc.add_paragraph(f'• {char}')
+        # 角色
+        doc.add_heading('主要角色', level=2)
+        for char in outline.characters:
+            doc.add_paragraph(f'• {char}')
 
-    # 亮点
-    doc.add_heading('故事亮点', level=2)
-    doc.add_paragraph(outline.highlights)
+        # 亮点
+        doc.add_heading('故事亮点', level=2)
+        doc.add_paragraph(outline.highlights)
 
-    # 如果有生成的正文内容
-    if outline.content:
-        doc.add_heading('已生成内容', level=2)
-        doc.add_paragraph(outline.content)
+        # 如果有生成的正文内容
+        if outline.content:
+            doc.add_heading('已生成内容', level=2)
+            doc.add_paragraph(outline.content)
 
-    # 保存到内存
-    buffer = io.BytesIO()
-    doc.save(buffer)
-    buffer.seek(0)
+        # 保存到文件
+        import tempfile
+        import os
 
-    return FileResponse(
-        buffer,
-        media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        filename=f'{outline.title}.docx'
-    )
+        # 使用ASCII安全的文件名
+        safe_filename = f"outline_{outline_id}.docx"
+        with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as tmp:
+            doc.save(tmp.name)
+            tmp_path = tmp.name
+
+        with open(tmp_path, 'rb') as f:
+            content = f.read()
+        os.unlink(tmp_path)
+
+        from starlette.responses import Response
+        return Response(
+            content,
+            media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            headers={'Content-Disposition': f'attachment; filename="{safe_filename}"'}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")

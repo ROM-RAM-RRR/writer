@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../utils/api';
 import type { Theme, Project } from '../utils/types';
-import OutlineGenerator from '../components/OutlineGenerator';
 import './Editor.css';
 
 export default function Editor() {
@@ -9,8 +8,11 @@ export default function Editor() {
   const [themes, setThemes] = useState<Theme[]>([]);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [content, setContent] = useState('');
+  const [outline, setOutline] = useState('');
   const [generating, setGenerating] = useState(false);
   const [generatedText, setGeneratedText] = useState('');
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false);
+  const [discardSuggestion, setDiscardSuggestion] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -32,6 +34,7 @@ export default function Editor() {
   const selectProject = (project: Project) => {
     setCurrentProject(project);
     setContent(project.content);
+    setOutline(project.outline || '');
     setGeneratedText('');
   };
 
@@ -44,7 +47,7 @@ export default function Editor() {
 
   const saveProject = async () => {
     if (!currentProject) return;
-    await api.updateProject(currentProject.id, { content });
+    await api.updateProject(currentProject.id, { content, outline });
     const updated = await api.getProject(currentProject.id);
     setCurrentProject(updated);
     setProjects(projects.map(p => p.id === updated.id ? updated : p));
@@ -59,7 +62,7 @@ export default function Editor() {
       const response = await api.generateContent(
         content,
         currentProject?.theme_id,
-        { max_tokens: 1000, temperature: 0.8 }
+        { max_tokens: 1000, temperature: 0.8, outline }
       );
 
       const reader = response.body?.getReader();
@@ -97,6 +100,54 @@ export default function Editor() {
       setContent(prev => prev + generatedText);
       setGeneratedText('');
       saveProject();
+    }
+  };
+
+  const discardGenerated = () => {
+    setShowDiscardDialog(true);
+  };
+
+  const submitDiscardWithSuggestion = async () => {
+    if (!discardSuggestion.trim() || generating) return;
+    setShowDiscardDialog(false);
+    setGenerating(true);
+    setGeneratedText('');
+
+    try {
+      const response = await api.generateContent(
+        content,
+        currentProject?.theme_id,
+        { max_tokens: 1000, temperature: 0.8, suggestion: discardSuggestion, outline }
+      );
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const text = decoder.decode(value);
+          const lines = text.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') continue;
+              if (data.startsWith('[ERROR]')) {
+                alert('生成出错: ' + data);
+                continue;
+              }
+              setGeneratedText(prev => prev + data);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Generation error:', error);
+      alert('生成失败，请检查API配置');
+    } finally {
+      setGenerating(false);
+      setDiscardSuggestion('');
     }
   };
 
@@ -155,6 +206,17 @@ export default function Editor() {
               </div>
             </div>
 
+            <div className="outline-section">
+              <h3>故事大纲</h3>
+              <textarea
+                value={outline}
+                onChange={(e) => setOutline(e.target.value)}
+                placeholder="输入或编辑故事大纲..."
+                className="outline-textarea"
+              />
+              <button className="btn-primary" onClick={saveProject}>保存大纲</button>
+            </div>
+
             <div className="editor-area">
               <textarea
                 ref={textareaRef}
@@ -165,14 +227,33 @@ export default function Editor() {
               {generatedText && (
                 <div className="generated-preview">
                   <h4>AI生成内容：</h4>
-                  <p>{generatedText}</p>
+                  <pre className="generated-text">{generatedText}</pre>
                   <div className="preview-actions">
                     <button className="btn-primary" onClick={applyGenerated}>采纳</button>
-                    <button className="btn-secondary" onClick={() => setGeneratedText('')}>丢弃</button>
+                    <button className="btn-secondary" onClick={discardGenerated}>丢弃并改进</button>
                   </div>
                 </div>
               )}
             </div>
+
+            {showDiscardDialog && (
+              <div className="modal-overlay" onClick={() => setShowDiscardDialog(false)}>
+                <div className="modal" onClick={e => e.stopPropagation()}>
+                  <h3>改进建议</h3>
+                  <p>请提供改进建议，AI将根据您的建议重新生成内容：</p>
+                  <textarea
+                    value={discardSuggestion}
+                    onChange={(e) => setDiscardSuggestion(e.target.value)}
+                    placeholder="例如：让情节更紧凑、人物更有层次感..."
+                    rows={4}
+                  />
+                  <div className="modal-actions">
+                    <button className="btn-primary" onClick={submitDiscardWithSuggestion}>提交并重新生成</button>
+                    <button className="btn-secondary" onClick={() => { setShowDiscardDialog(false); setGeneratedText(''); }}>直接丢弃</button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="editor-actions">
               <button
@@ -183,15 +264,6 @@ export default function Editor() {
                 {generating ? '生成中...' : 'AI续写'}
               </button>
             </div>
-
-            <OutlineGenerator
-              themes={themes}
-              currentThemeId={currentProject?.theme_id || undefined}
-              onSelectOutline={(generatedContent) => {
-                setContent(prev => prev + '\n\n' + generatedContent);
-                saveProject();
-              }}
-            />
           </>
         ) : (
           <div className="no-project">

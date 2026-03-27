@@ -24,6 +24,8 @@ class GenerateRequest(BaseModel):
     max_tokens: Optional[int] = 1000
     temperature: Optional[float] = 0.8
     top_p: Optional[float] = 0.9
+    suggestion: Optional[str] = None
+    outline: Optional[str] = None
 
 
 @router.post("/")
@@ -48,6 +50,16 @@ async def generate(request: GenerateRequest):
 
 请继续保持当前的故事风格和节奏进行续写。"""
 
+    # Build user prompt with outline if provided
+    user_prompt = f"请根据以下内容续写故事。要求：\n1. 保持段落分明，使用换行分隔不同段落\n2. 每个段落应该是一个完整的叙事单元\n3. 保持故事的连贯性和风格一致\n\n待续写内容：\n\n{request.content}"
+
+    if request.outline:
+        user_prompt += f"\n\n【故事大纲】\n{request.outline}"
+
+    # Add suggestion if provided
+    if request.suggestion:
+        user_prompt += f"\n\n改进建议：{request.suggestion}"
+
     client = OpenAI(
         base_url=config.get("base_url", "https://api.openai.com/v1"),
         api_key=config["api_key"],
@@ -57,11 +69,21 @@ async def generate(request: GenerateRequest):
 
     async def generate_stream():
         try:
+            user_prompt = f"请根据以下内容续写故事。要求：\n1. 保持段落分明，使用换行分隔不同段落\n2. 每个段落应该是一个完整的叙事单元\n3. 保持故事的连贯性和风格一致\n\n待续写内容：\n\n{request.content}"
+
+            # Add outline if provided
+            if request.outline:
+                user_prompt += f"\n\n【故事大纲】\n{request.outline}"
+
+            # Add suggestion if provided
+            if request.suggestion:
+                user_prompt += f"\n\n改进建议：{request.suggestion}"
+
             response = client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"请续写以下内容：\n\n{request.content}"},
+                    {"role": "user", "content": user_prompt},
                 ],
                 max_tokens=request.max_tokens or 1000,
                 temperature=request.temperature or 0.8,
