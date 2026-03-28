@@ -66,13 +66,21 @@ export default function Outlines() {
     const title = prompt('请输入项目名称：', outline.title);
     if (!title) return;
 
+    // Build outline text from the saved outline
+    const outlineText = `【大纲】\n\n类型：${outline.genre}\n\n情节：${outline.plot}\n\n角色：${outline.characters.join('、')}\n\n亮点：${outline.highlights}`;
+
+    // Build content if there's generated content
+    const initialContent = outline.content || '';
+
     try {
       const project = await api.createProject({
         title,
-        content: outline.content || `【大纲】\n\n类型：${outline.genre}\n\n情节：${outline.plot}\n\n角色：${outline.characters.join('、')}\n\n亮点：${outline.highlights}`,
+        content: initialContent,
+        outline: outlineText,
       });
       alert('项目已创建！');
-      window.location.href = '/editor';
+      // Navigate to editor with the new project
+      window.location.href = `/editor?project=${project.id}`;
     } catch (error) {
       console.error('Create project error:', error);
       alert('创建项目失败');

@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../utils/api';
 import type { Theme, Project } from '../utils/types';
+import { useSearchParams } from 'react-router-dom';
 import './Editor.css';
 
 export default function Editor() {
+  const [searchParams] = useSearchParams();
   const [projects, setProjects] = useState<Project[]>([]);
   const [themes, setThemes] = useState<Theme[]>([]);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
@@ -13,10 +15,26 @@ export default function Editor() {
   const [generatedText, setGeneratedText] = useState('');
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [discardSuggestion, setDiscardSuggestion] = useState('');
+  const [isPaused, setIsPaused] = useState(false);
+  const [generateMode, setGenerateMode] = useState<'continue' | 'complete'>('continue');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Generation state managed in a ref object
+  const genState = useRef({
+    isGenerating: false,
+    isPaused: false,
+    generatedText: '',
+    shouldStop: false,
+  });
+
+  // Initialize refs that need to persist
   useEffect(() => {
-    loadData();
+    genState.current = {
+      isGenerating: false,
+      isPaused: false,
+      generatedText: '',
+      shouldStop: false,
+    };
   }, []);
 
   const loadData = async () => {
@@ -26,10 +44,29 @@ export default function Editor() {
     ]);
     setProjects(projectsData);
     setThemes(themesData);
-    if (projectsData.length > 0) {
-      selectProject(projectsData[0]);
-    }
+    return projectsData;
   };
+
+  // Initial load and when URL params change
+  useEffect(() => {
+    loadData().then(projectsData => {
+      if (projectsData.length === 0) return;
+
+      const projectId = searchParams.get('project');
+      let targetProject = null;
+
+      if (projectId) {
+        targetProject = projectsData.find(p => p.id === projectId);
+      }
+
+      // Default: select first project
+      if (!targetProject) {
+        targetProject = projectsData[0];
+      }
+
+      selectProject(targetProject);
+    });
+  }, [searchParams]);
 
   const selectProject = (project: Project) => {
     setCurrentProject(project);
@@ -53,16 +90,47 @@ export default function Editor() {
     setProjects(projects.map(p => p.id === updated.id ? updated : p));
   };
 
-  const generateContent = async () => {
-    if (!content || generating) return;
+  const generateContent = async (fromOutline: boolean = false, autoContinue: boolean = false) => {
+    const state = genState.current;
+
+    if (state.isGenerating && !autoContinue) return;
+
+    const hasContent = content.trim().length > 0;
+    const hasOutline = outline.trim().length > 0;
+
+    // Validation - only for manual start (not autoContinue)
+    if (!autoContinue) {
+      // If starting from outline, need outline
+      if (fromOutline && !hasOutline) {
+        alert('请先填写大纲');
+        return;
+      }
+      // If continuing (not from outline), need either content or outline
+      if (!fromOutline && !hasContent && !hasOutline) {
+        alert('请先输入内容或填写大纲');
+        return;
+      }
+      // If from outline with complete mode, that's valid
+    }
+
+    // Initialize state
+    if (!autoContinue) {
+      state.generatedText = '';
+      state.isPaused = false;
+      state.shouldStop = false;
+    }
+    state.isGenerating = true;
+
     setGenerating(true);
-    setGeneratedText('');
+    if (!autoContinue) {
+      setGeneratedText('');
+    }
 
     try {
       const response = await api.generateContent(
-        content,
+        fromOutline ? '' : content,
         currentProject?.theme_id,
-        { max_tokens: 1000, temperature: 0.8, outline }
+        { max_tokens: 1000, temperature: 0.8, outline, generate_mode: generateMode }
       );
 
       const reader = response.body?.getReader();
@@ -70,6 +138,15 @@ export default function Editor() {
 
       if (reader) {
         while (true) {
+          // Stop if requested
+          if (state.shouldStop) break;
+
+          // When paused, keep waiting
+          if (state.isPaused) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+            continue;
+          }
+
           const { done, value } = await reader.read();
           if (done) break;
           const text = decoder.decode(value);
@@ -82,17 +159,67 @@ export default function Editor() {
                 alert('生成出错: ' + data);
                 continue;
               }
-              setGeneratedText(prev => prev + data);
+              state.generatedText += data;
+              setGeneratedText(state.generatedText);
             }
           }
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Generation error:', error);
-      alert('生成失败，请检查API配置');
+      if (!autoContinue) {
+        alert('生成失败，请检查API配置');
+      }
     } finally {
+      state.isGenerating = false;
       setGenerating(false);
+
+      // Auto-continue only in "continue" mode with enough text
+      // In "complete" mode, we don't auto-continue - story is complete
+      if (generateMode === 'continue' && state.generatedText.length > 100 && !state.shouldStop && !autoContinue) {
+        console.log('Auto-continuing...');
+        // Add to content
+        const newContent = content + state.generatedText;
+        setContent(newContent);
+        // Auto-save to project
+        if (currentProject) {
+          api.updateProject(currentProject.id, { content: newContent, outline: outline || undefined });
+        }
+        // Clear and continue
+        state.generatedText = '';
+        setGeneratedText('');
+        // Continue after delay
+        setTimeout(() => {
+          generateContent(false, true);
+        }, 1500);
+      } else if (generateMode === 'complete' && state.generatedText.length > 0) {
+        // In complete mode, just save the generated story
+        console.log('Complete story generated');
+        const newContent = content + state.generatedText;
+        setContent(newContent);
+        setGeneratedText(state.generatedText);
+        if (currentProject) {
+          api.updateProject(currentProject.id, { content: newContent, outline: outline || undefined });
+        }
+      }
     }
+  };
+
+  // Toggle pause/resume
+  const togglePause = () => {
+    const state = genState.current;
+    if (state.isGenerating) {
+      state.isPaused = !state.isPaused;
+      setIsPaused(state.isPaused);
+    }
+  };
+
+  // Stop generation
+  const stopGeneration = () => {
+    const state = genState.current;
+    state.shouldStop = true;
+    state.isPaused = false;
+    setIsPaused(false);
   };
 
   const applyGenerated = () => {
@@ -117,11 +244,12 @@ export default function Editor() {
       const response = await api.generateContent(
         content,
         currentProject?.theme_id,
-        { max_tokens: 1000, temperature: 0.8, suggestion: discardSuggestion, outline }
+        { max_tokens: 1000, temperature: 0.8, suggestion: discardSuggestion, outline, generate_mode: generateMode }
       );
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
+      let fullText = '';
 
       if (reader) {
         while (true) {
@@ -137,9 +265,20 @@ export default function Editor() {
                 alert('生成出错: ' + data);
                 continue;
               }
-              setGeneratedText(prev => prev + data);
+              fullText += data;
+              setGeneratedText(fullText);
             }
           }
+        }
+      }
+
+      // Save the generated content based on mode
+      if (fullText.length > 0) {
+        const newContent = content + fullText;
+        setContent(newContent);
+        setGeneratedText(fullText);
+        if (currentProject) {
+          api.updateProject(currentProject.id, { content: newContent, outline: outline || undefined });
         }
       }
     } catch (error) {
@@ -256,13 +395,53 @@ export default function Editor() {
             )}
 
             <div className="editor-actions">
-              <button
-                className="btn-generate"
-                onClick={generateContent}
-                disabled={generating || !content}
-              >
-                {generating ? '生成中...' : 'AI续写'}
-              </button>
+              {generating ? (
+                <>
+                  <button className="btn-pause" onClick={togglePause}>
+                    {isPaused ? '继续' : '暂停'}
+                  </button>
+                  <button className="btn-stop" onClick={stopGeneration}>
+                    停止
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="generate-mode-selector">
+                    <label>
+                      <input
+                        type="radio"
+                        name="generateMode"
+                        checked={generateMode === 'continue'}
+                        onChange={() => setGenerateMode('continue')}
+                      />
+                      连续续写
+                    </label>
+                    <label>
+                      <input
+                        type="radio"
+                        name="generateMode"
+                        checked={generateMode === 'complete'}
+                        onChange={() => setGenerateMode('complete')}
+                      />
+                      完整故事
+                    </label>
+                  </div>
+                  <button
+                    className="btn-generate"
+                    onClick={() => generateContent(false)}
+                    disabled={!content}
+                  >
+                    {generateMode === 'complete' ? '续写完整结局' : 'AI续写'}
+                  </button>
+                  <button
+                    className="btn-generate-outline"
+                    onClick={() => generateContent(true)}
+                    disabled={!outline}
+                  >
+                    {generateMode === 'complete' ? '创作完整故事' : '从大纲开始'}
+                  </button>
+                </>
+              )}
             </div>
           </>
         ) : (

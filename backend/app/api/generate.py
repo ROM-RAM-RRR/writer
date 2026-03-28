@@ -26,6 +26,7 @@ class GenerateRequest(BaseModel):
     top_p: Optional[float] = 0.9
     suggestion: Optional[str] = None
     outline: Optional[str] = None
+    generate_mode: Optional[str] = "continue"  # "continue" or "complete"
 
 
 @router.post("/")
@@ -69,11 +70,53 @@ async def generate(request: GenerateRequest):
 
     async def generate_stream():
         try:
-            user_prompt = f"请根据以下内容续写故事。要求：\n1. 保持段落分明，使用换行分隔不同段落\n2. 每个段落应该是一个完整的叙事单元\n3. 保持故事的连贯性和风格一致\n\n待续写内容：\n\n{request.content}"
+            # Check if generating from outline only (empty content)
+            if not request.content and request.outline:
+                if request.generate_mode == "complete":
+                    user_prompt = f"""请根据以下故事大纲创作一个完整的中篇小说。
 
-            # Add outline if provided
-            if request.outline:
-                user_prompt += f"\n\n【故事大纲】\n{request.outline}"
+【故事大纲】
+{request.outline}
+
+要求：
+1. 保持段落分明，使用换行分隔不同段落
+2. 每个段落应该是一个完整的叙事单元
+3. 故事要有完整的开头、发展、高潮、结局
+4. 开头要有吸引力，结局要令人满意
+5. 字数要求：2000-4000字左右
+6. 一次性生成完整的故事，不要分段生成
+"""
+                else:
+                    user_prompt = f"""请根据以下故事大纲创作小说正文。
+
+【故事大纲】
+{request.outline}
+
+要求：
+1. 保持段落分明，使用换行分隔不同段落
+2. 每个段落应该是一个完整的叙事单元
+3. 故事要从开头开始，保持连贯性和风格一致
+4. 开头要有吸引力，能吸引读者继续阅读
+"""
+            else:
+                if request.generate_mode == "complete":
+                    user_prompt = f"""请根据以下内容续写，创作一个完整的故事结尾。
+
+当前内容：
+{request.content}
+
+要求：
+1. 保持段落分明，使用换行分隔不同段落
+2. 续写要有完整的结局，给读者一个满意的结尾
+3. 字数要求：1500-3000字左右
+4. 一次性生成完整的故事结尾
+"""
+                else:
+                    user_prompt = f"请根据以下内容续写故事。要求：\n1. 保持段落分明，使用换行分隔不同段落\n2. 每个段落应该是一个完整的叙事单元\n3. 保持故事的连贯性和风格一致\n4. 句子之间要自然衔接，不要在句子中间断开\n\n待续写内容：\n\n{request.content}"
+
+                # Add outline if provided
+                if request.outline:
+                    user_prompt += f"\n\n【故事大纲】\n{request.outline}"
 
             # Add suggestion if provided
             if request.suggestion:
@@ -85,7 +128,7 @@ async def generate(request: GenerateRequest):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                max_tokens=request.max_tokens or 1000,
+                max_tokens=request.max_tokens if request.generate_mode == "continue" else 4000,
                 temperature=request.temperature or 0.8,
                 top_p=request.top_p or 0.9,
                 stream=True,

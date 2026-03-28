@@ -56,7 +56,7 @@ export const api = {
     return res.json();
   },
 
-  async updateProject(id: string, project: { title?: string; content?: string; outline?: string; theme_id?: string }): Promise<Project> {
+  async updateProject(id: string, project: { title?: string; content?: string; outline?: string | undefined; theme_id?: string | null }): Promise<Project> {
     const res = await fetch(`${API_BASE}/projects/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -90,7 +90,7 @@ export const api = {
   },
 
   // Generate API (streaming)
-  generateContent(content: string, themeId?: string, options?: { max_tokens?: number; temperature?: number; top_p?: number; suggestion?: string; outline?: string }) {
+  generateContent(content: string, themeId?: string, options?: { max_tokens?: number; temperature?: number; top_p?: number; suggestion?: string; outline?: string; generate_mode?: string }) {
     return fetch(`${API_BASE}/generate/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

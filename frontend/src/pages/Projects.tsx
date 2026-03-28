@@ -93,7 +93,7 @@ export default function Projects() {
                 </p>
               </div>
               <div className="project-actions">
-                <button className="btn-primary" onClick={() => navigate('/editor')}>
+                <button className="btn-primary" onClick={() => navigate(`/editor?project=${project.id}`)}>
                   继续写作
                 </button>
                 <button className="btn-export" onClick={() => handleExport(project.id)}>
