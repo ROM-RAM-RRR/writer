@@ -75,11 +75,28 @@ export default function Editor() {
     setGeneratedText('');
   };
 
+  const [showAddProject, setShowAddProject] = useState(false);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
+
   const createProject = async () => {
     const title = `新项目 ${projects.length + 1}`;
     const project = await api.createProject({ title });
     setProjects([project, ...projects]);
     selectProject(project);
+  };
+
+  const loadAllProjects = async () => {
+    const all = await api.getProjects();
+    setAllProjects(all);
+    setShowAddProject(true);
+  };
+
+  const addProjectToList = (project: Project) => {
+    if (!projects.find(p => p.id === project.id)) {
+      setProjects([project, ...projects]);
+    }
+    selectProject(project);
+    setShowAddProject(false);
   };
 
   const saveProject = async () => {
@@ -192,16 +209,8 @@ export default function Editor() {
         setTimeout(() => {
           generateContent(false, true);
         }, 1500);
-      } else if (generateMode === 'complete' && state.generatedText.length > 0) {
-        // In complete mode, just save the generated story
-        console.log('Complete story generated');
-        const newContent = content + state.generatedText;
-        setContent(newContent);
-        setGeneratedText(state.generatedText);
-        if (currentProject) {
-          api.updateProject(currentProject.id, { content: newContent, outline: outline || undefined });
-        }
       }
+      // Note: In complete mode, we don't auto-add to content - user needs to "采纳" to confirm
     }
   };
 
@@ -218,7 +227,9 @@ export default function Editor() {
   const stopGeneration = () => {
     const state = genState.current;
     state.shouldStop = true;
+    state.isGenerating = false;
     state.isPaused = false;
+    setGenerating(false);
     setIsPaused(false);
   };
 
@@ -236,9 +247,15 @@ export default function Editor() {
 
   const submitDiscardWithSuggestion = async () => {
     if (!discardSuggestion.trim() || generating) return;
+    const state = genState.current;
+
     setShowDiscardDialog(false);
     setGenerating(true);
     setGeneratedText('');
+    state.generatedText = '';
+    state.isGenerating = true;
+    state.isPaused = false;
+    state.shouldStop = false;
 
     try {
       const response = await api.generateContent(
@@ -249,10 +266,17 @@ export default function Editor() {
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-      let fullText = '';
 
       if (reader) {
         while (true) {
+          // Check stop
+          if (state.shouldStop) break;
+          // Check pause
+          if (state.isPaused) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+            continue;
+          }
+
           const { done, value } = await reader.read();
           if (done) break;
           const text = decoder.decode(value);
@@ -265,34 +289,28 @@ export default function Editor() {
                 alert('生成出错: ' + data);
                 continue;
               }
-              fullText += data;
-              setGeneratedText(fullText);
+              state.generatedText += data;
+              setGeneratedText(state.generatedText);
             }
           }
         }
       }
 
-      // Save the generated content based on mode
-      if (fullText.length > 0) {
-        const newContent = content + fullText;
-        setContent(newContent);
-        setGeneratedText(fullText);
-        if (currentProject) {
-          api.updateProject(currentProject.id, { content: newContent, outline: outline || undefined });
-        }
-      }
+      // Don't auto-add to content - let user click "采纳" to confirm
+      // This applies to both continue and complete modes
+      console.log('Generation complete, waiting for user confirmation');
     } catch (error) {
       console.error('Generation error:', error);
       alert('生成失败，请检查API配置');
     } finally {
+      state.isGenerating = false;
       setGenerating(false);
       setDiscardSuggestion('');
     }
   };
 
-  const deleteProject = async (id: string) => {
-    if (!confirm('确定要删除这个项目吗？')) return;
-    await api.deleteProject(id);
+  const removeFromList = (id: string) => {
+    // Just remove from Editor list, don't delete the project
     setProjects(projects.filter(p => p.id !== id));
     if (currentProject?.id === id) {
       if (projects.length > 1) {
@@ -300,6 +318,7 @@ export default function Editor() {
       } else {
         setCurrentProject(null);
         setContent('');
+        setOutline('');
       }
     }
   };
@@ -308,19 +327,40 @@ export default function Editor() {
     <div className="editor-page">
       <div className="project-list">
         <h3>项目列表</h3>
-        <button className="btn-primary" onClick={createProject}>新建项目</button>
+        <div className="project-list-actions">
+          <button className="btn-primary btn-sm" onClick={createProject}>新建</button>
+          <button className="btn-secondary btn-sm" onClick={loadAllProjects}>添加</button>
+        </div>
         <ul>
-          {projects.map(project => (
-            <li
-              key={project.id}
-              className={currentProject?.id === project.id ? 'active' : ''}
-              onClick={() => selectProject(project)}
-            >
-              <span>{project.title}</span>
-              <button className="btn-delete" onClick={(e) => { e.stopPropagation(); deleteProject(project.id); }}>×</button>
-            </li>
-          ))}
+          {projects.length === 0 ? (
+            <li className="empty-hint">暂无项目，点击"新建"或"添加"</li>
+          ) : (
+            projects.map(project => (
+              <li
+                key={project.id}
+                className={currentProject?.id === project.id ? 'active' : ''}
+                onClick={() => selectProject(project)}
+              >
+                <span>{project.title}</span>
+                <button className="btn-remove" onClick={(e) => { e.stopPropagation(); removeFromList(project.id); }}>×</button>
+              </li>
+            ))
+          )}
         </ul>
+
+        {showAddProject && (
+          <div className="add-project-modal">
+            <h4>选择项目添加到写作列表</h4>
+            <ul className="project-select-list">
+              {allProjects.map(project => (
+                <li key={project.id} onClick={() => addProjectToList(project)}>
+                  {project.title}
+                </li>
+              ))}
+            </ul>
+            <button className="btn-secondary btn-sm" onClick={() => setShowAddProject(false)}>关闭</button>
+          </div>
+        )}
       </div>
 
       <div className="editor-main">
@@ -367,10 +407,12 @@ export default function Editor() {
                 <div className="generated-preview">
                   <h4>AI生成内容：</h4>
                   <pre className="generated-text">{generatedText}</pre>
-                  <div className="preview-actions">
-                    <button className="btn-primary" onClick={applyGenerated}>采纳</button>
-                    <button className="btn-secondary" onClick={discardGenerated}>丢弃并改进</button>
-                  </div>
+                  {!generating && (
+                    <div className="preview-actions">
+                      <button className="btn-primary" onClick={applyGenerated}>采纳</button>
+                      <button className="btn-secondary" onClick={discardGenerated}>丢弃并改进</button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -388,7 +430,13 @@ export default function Editor() {
                   />
                   <div className="modal-actions">
                     <button className="btn-primary" onClick={submitDiscardWithSuggestion}>提交并重新生成</button>
-                    <button className="btn-secondary" onClick={() => { setShowDiscardDialog(false); setGeneratedText(''); }}>直接丢弃</button>
+                    <button className="btn-secondary" onClick={() => {
+                      setShowDiscardDialog(false);
+                      setGeneratedText('');
+                      setIsPaused(false);
+                      genState.current.isGenerating = false;
+                      genState.current.isPaused = false;
+                    }}>直接丢弃</button>
                   </div>
                 </div>
               </div>

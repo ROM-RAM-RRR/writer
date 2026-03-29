@@ -43,12 +43,56 @@
   display: grid;
   grid-template-columns: 350px 1fr;
   gap: 20px;
+  height: calc(100vh - 140px);
 }
 
 .outlines-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  overflow-y: auto;
+  padding-right: 5px;
+  /* Custom scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: #c0c0c0 #f0f0f0;
+}
+
+.outlines-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.outlines-list::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 3px;
+}
+
+.outlines-list::-webkit-scrollbar-thumb {
+  background: #c0c0c0;
+  border-radius: 3px;
+}
+
+.outline-detail {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  overflow-y: auto;
+  /* Custom scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: #c0c0c0 #f0f0f0;
+}
+
+.outline-detail::-webkit-scrollbar {
+  width: 6px;
+}
+
+.outline-detail::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 3px;
+}
+
+.outline-detail::-webkit-scrollbar-thumb {
+  background: #c0c0c0;
+  border-radius: 3px;
 }
 
 .outline-item {

@@ -10,6 +10,8 @@ export default function Projects() {
   const [showModal, setShowModal] = useState(false);
   const [newProjectTitle, setNewProjectTitle] = useState('');
   const [selectedTheme, setSelectedTheme] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -44,6 +46,24 @@ export default function Projects() {
     setProjects(projects.filter(p => p.id !== id));
   };
 
+  const startRename = (project: Project) => {
+    setEditingId(project.id);
+    setEditingTitle(project.title);
+  };
+
+  const saveRename = async () => {
+    if (!editingId || !editingTitle.trim()) return;
+    const updated = await api.updateProject(editingId, { title: editingTitle.trim() });
+    setProjects(projects.map(p => p.id === editingId ? updated : p));
+    setEditingId(null);
+    setEditingTitle('');
+  };
+
+  const cancelRename = () => {
+    setEditingId(null);
+    setEditingTitle('');
+  };
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('zh-CN');
   };
@@ -76,7 +96,21 @@ export default function Projects() {
           {projects.map(project => (
             <div key={project.id} className="project-card">
               <div className="project-info">
-                <h3>{project.title}</h3>
+                {editingId === project.id ? (
+                  <div className="rename-form">
+                    <input
+                      type="text"
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && saveRename()}
+                      autoFocus
+                    />
+                    <button className="btn-sm btn-primary" onClick={saveRename}>保存</button>
+                    <button className="btn-sm btn-secondary" onClick={cancelRename}>取消</button>
+                  </div>
+                ) : (
+                  <h3 onClick={() => startRename(project)} title="点击重命名">{project.title}</h3>
+                )}
                 <div className="project-meta">
                   <span className="meta-item">
                     主题: {getThemeName(project.theme_id)}

@@ -41,6 +41,30 @@
 .project-info h3 {
   margin: 0 0 10px 0;
   color: #2c3e50;
+  cursor: pointer;
+}
+
+.project-info h3:hover {
+  color: #3498db;
+}
+
+.rename-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.rename-form input {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.rename-form .btn-sm {
+  padding: 6px 10px;
+  font-size: 12px;
 }
 
 .project-meta {

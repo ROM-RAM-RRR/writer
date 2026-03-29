@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../utils/api';
 import type { Theme } from '../utils/types';
 import OutlineGenerator from '../components/OutlineGenerator';
@@ -23,6 +23,7 @@ export default function Outlines() {
   const [themes, setThemes] = useState<Theme[]>([]);
   const [selectedOutline, setSelectedOutline] = useState<SavedOutline | null>(null);
   const [loading, setLoading] = useState(true);
+  const detailRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadData();
@@ -115,7 +116,13 @@ export default function Outlines() {
               <div
                 key={outline.id}
                 className={`outline-item ${selectedOutline?.id === outline.id ? 'active' : ''}`}
-                onClick={() => setSelectedOutline(outline)}
+                onClick={() => {
+                  setSelectedOutline(outline);
+                  // Scroll to top when selecting
+                  if (detailRef.current) {
+                    detailRef.current.scrollTop = 0;
+                  }
+                }}
               >
                 <h4>{outline.title}</h4>
                 <div className="outline-tags">
@@ -131,7 +138,7 @@ export default function Outlines() {
           </div>
 
           {selectedOutline && (
-            <div className="outline-detail">
+            <div className="outline-detail" ref={detailRef}>
               <div className="detail-header">
                 <h3>{selectedOutline.title}</h3>
                 <div className="detail-actions">

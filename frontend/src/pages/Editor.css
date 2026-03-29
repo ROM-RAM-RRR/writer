@@ -56,6 +56,77 @@
   padding: 4px 8px;
 }
 
+.btn-remove {
+  background: none;
+  border: none;
+  color: #e74c3c;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px 8px;
+}
+
+.btn-remove:hover {
+  color: #c0392b;
+}
+
+.project-list-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.3s;
+}
+
+.project-list .btn-sm {
+  flex: 1;
+}
+
+.empty-hint {
+  color: #95a5a6;
+  font-size: 14px;
+  text-align: center;
+  padding: 20px;
+}
+
+.add-project-modal {
+  margin-top: 15px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.add-project-modal h4 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #2c3e50;
+}
+
+.project-select-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.project-select-list li {
+  padding: 10px;
+  cursor: pointer;
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+
+.project-select-list li:hover {
+  background: #e8f4f8;
+}
+
 .editor-main {
   flex: 1;
   display: flex;
