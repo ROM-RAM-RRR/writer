@@ -15,6 +15,10 @@ export default function Editor() {
   const [generatedText, setGeneratedText] = useState('');
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [discardSuggestion, setDiscardSuggestion] = useState('');
+  const [showModifyDialog, setShowModifyDialog] = useState(false);
+  const [selectedText, setSelectedText] = useState('');
+  const [modifyWordCount, setModifyWordCount] = useState(200);
+  const [modifyLoading, setModifyLoading] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [generateMode, setGenerateMode] = useState<'continue' | 'complete'>('continue');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -97,6 +101,15 @@ export default function Editor() {
     }
     selectProject(project);
     setShowAddProject(false);
+  };
+
+  const removeFromList = (projectId: string) => {
+    setProjects(projects.filter(p => p.id !== projectId));
+    if (currentProject?.id === projectId) {
+      setCurrentProject(projects.find(p => p.id !== projectId) || null);
+      setContent('');
+      setOutline('');
+    }
   };
 
   const saveProject = async () => {
@@ -309,17 +322,107 @@ export default function Editor() {
     }
   };
 
-  const removeFromList = (id: string) => {
-    // Just remove from Editor list, don't delete the project
-    setProjects(projects.filter(p => p.id !== id));
-    if (currentProject?.id === id) {
-      if (projects.length > 1) {
-        selectProject(projects.find(p => p.id !== id)!);
-      } else {
-        setCurrentProject(null);
-        setContent('');
-        setOutline('');
+  const handleTextSelect = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    if (start < end) {
+      const selected = content.substring(start, end);
+      setSelectedText(selected);
+      setShowModifyDialog(true);
+    }
+  };
+
+  const handleModify = async () => {
+    if (!selectedText || modifyLoading) return;
+
+    // Get remark from input if any
+    const remark = document.getElementById('modify-remark') as HTMLInputElement;
+    const remarkText = remark?.value || '';
+
+    setModifyLoading(true);
+
+    try {
+      // Get context for better AI understanding
+      const fullContent = content;
+      const selectedStart = fullContent.indexOf(selectedText);
+      // Get surrounding context
+      const contextBefore = fullContent.substring(Math.max(0, selectedStart - 500), selectedStart);
+      const contextAfter = fullContent.substring(selectedStart + selectedText.length, selectedStart + selectedText.length + 500);
+
+      // Get current theme info
+      const currentTheme = themes.find(t => t.id === currentProject?.theme_id);
+      const themeInfo = currentTheme ? `\n【写作风格】${currentTheme.style}\n【类型】${currentTheme.genre}` : '';
+
+      // Build comprehensive prompt with all context
+      let prompt = '';
+      if (outline) {
+        prompt += `【故事大纲】\n${outline}\n\n`;
       }
+      if (themeInfo) {
+        prompt += `【主题设定】${themeInfo}\n\n`;
+      }
+      prompt += `【全文参考上下文】\n${contextBefore}█${selectedText}█${contextAfter}\n\n`;
+      prompt += `【任务】请修改或扩写上面『█』标记之间的文字。\n`;
+      prompt += `【目标】约 ${modifyWordCount} 字\n`;
+      if (remarkText) {
+        prompt += `【具体要求】${remarkText}\n`;
+      }
+      prompt += `\n请直接输出修改后的文字，不需要其他说明。`;
+
+      // Pass prompt as content
+      const response = await api.generateContent(
+        prompt,
+        currentProject?.theme_id,
+        { max_tokens: modifyWordCount + 300, temperature: 0.7 }
+      );
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let newText = '';
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const text = decoder.decode(value);
+          const lines = text.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') continue;
+              if (data.startsWith('[ERROR]')) continue;
+              newText += data;
+            }
+          }
+        }
+      }
+
+      if (newText) {
+        // Show result in preview for user to approve
+        setGeneratedText(newText);
+      }
+
+      setModifyLoading(false);
+      setShowModifyDialog(false);
+    } catch (error) {
+      console.error('Modify error:', error);
+      setModifyLoading(false);
+    }
+  };
+
+  const applyModified = () => {
+    if (!generatedText) return;
+    // Replace selected text with new text
+    const start = content.indexOf(selectedText);
+    if (start !== -1) {
+      const newContent = content.substring(0, start) + generatedText + content.substring(start + selectedText.length);
+      setContent(newContent);
+      setGeneratedText('');
+      saveProject();
     }
   };
 
@@ -402,15 +505,21 @@ export default function Editor() {
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="在这里开始你的创作..."
+                onSelect={() => {
+                  // Detect text selection
+                }}
               />
+              <button className="btn-modify-selected" onClick={handleTextSelect}>
+                选中文本进行修改/扩写
+              </button>
               {generatedText && (
                 <div className="generated-preview">
-                  <h4>AI生成内容：</h4>
+                  <h4>修改/扩写结果：</h4>
                   <pre className="generated-text">{generatedText}</pre>
-                  {!generating && (
+                  {!generating && !modifyLoading && (
                     <div className="preview-actions">
-                      <button className="btn-primary" onClick={applyGenerated}>采纳</button>
-                      <button className="btn-secondary" onClick={discardGenerated}>丢弃并改进</button>
+                      <button className="btn-primary" onClick={applyModified}>采纳替换</button>
+                      <button className="btn-secondary" onClick={() => { setGeneratedText(''); setSelectedText(''); }}>取消</button>
                     </div>
                   )}
                 </div>
@@ -437,6 +546,45 @@ export default function Editor() {
                       genState.current.isGenerating = false;
                       genState.current.isPaused = false;
                     }}>直接丢弃</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {showModifyDialog && (
+              <div className="modal-overlay" onClick={() => setShowModifyDialog(false)}>
+                <div className="modal" onClick={e => e.stopPropagation()}>
+                  <h3>修改/扩写选中文本</h3>
+                  <div className="selected-text-preview">
+                    <p>已选中文本：</p>
+                    <pre>{selectedText}</pre>
+                  </div>
+                  <div className="form-group">
+                    <label>目标字数：</label>
+                    <input
+                      type="number"
+                      value={modifyWordCount}
+                      onChange={(e) => setModifyWordCount(parseInt(e.target.value) || 200)}
+                      min={50}
+                      max={2000}
+                      step={50}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>备注要求（可选）：</label>
+                    <input
+                      id="modify-remark"
+                      type="text"
+                      placeholder="例如：让语言更诗意、增加心理描写等"
+                    />
+                  </div>
+                  <div className="modal-actions">
+                    <button className="btn-primary" onClick={handleModify} disabled={modifyLoading}>
+                      {modifyLoading ? '处理中...' : '确认'}
+                    </button>
+                    <button className="btn-secondary" onClick={() => { setShowModifyDialog(false); setSelectedText(''); }}>
+                      取消
+                    </button>
                   </div>
                 </div>
               </div>
